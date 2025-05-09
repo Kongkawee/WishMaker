@@ -11,9 +11,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct WishMakerApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject var account = UserAccount()
+    
     var body: some Scene {
         WindowGroup {
             SplashView()
+                .environmentObject(account)
         }
     }
 }

@@ -62,3 +62,4 @@ fastlane/screenshots/**/*.png
 fastlane/test_output
 WishMaker/.DS_Store
 .DS_Store
+WishMaker/GoogleService-Info.plist

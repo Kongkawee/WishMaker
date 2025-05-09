@@ -2,6 +2,7 @@ import SwiftUI
 import FirebaseAuth
 
 struct LoginView: View {
+    @EnvironmentObject var account: UserAccount
     @State private var email = ""
     @State private var password = ""
     @State private var errorMessage = ""
@@ -49,6 +50,7 @@ struct LoginView: View {
             if let error = error {
                 errorMessage = "Login failed: \(error.localizedDescription)"
             } else {
+                account.loadFromFirestore()
                 isLoggedIn = true
             }
         }

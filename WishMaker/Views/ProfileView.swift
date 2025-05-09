@@ -2,6 +2,11 @@ import SwiftUI
 import FirebaseAuth
 
 struct ProfileView: View {
+    @EnvironmentObject var account: UserAccount
+    @State private var showAddMoneyAlert = false
+    @State private var moneyToAdd = ""
+    @State private var isLoggedOut = false
+
     var body: some View {
         VStack(spacing: 20) {
             if let user = Auth.auth().currentUser {
@@ -13,13 +18,36 @@ struct ProfileView: View {
                 Text(user.email ?? "No Email")
                     .font(.headline)
 
+                Text("Current Balance: $\(account.balance, specifier: "%.2f")")
+                    .font(.title3)
+                    .padding()
+
                 Button("Add Money") {
-                    // TODO: navigate to AddMoneyView
+                    showAddMoneyAlert = true
                 }
+                .alert("Add Money", isPresented: $showAddMoneyAlert, actions: {
+                    TextField("Amount", text: $moneyToAdd)
+                        .keyboardType(.decimalPad)
+                    Button("Add") {
+                        if let amount = Double(moneyToAdd), amount > 0 {
+                            account.addFunds(amount: amount)
+                        }
+                        moneyToAdd = ""
+                    }
+                    Button("Cancel", role: .cancel) {
+                        moneyToAdd = ""
+                    }
+                }, message: {
+                    Text("Enter the amount to add to your balance.")
+                })
 
                 Button("Sign Out") {
-                    try? Auth.auth().signOut()
-                    // You may want to trigger logout logic here
+                    do {
+                        try Auth.auth().signOut()
+                        isLoggedOut = true
+                    } catch {
+                        print("Error signing out: \(error.localizedDescription)")
+                    }
                 }
             } else {
                 Text("No user logged in.")
@@ -29,5 +57,9 @@ struct ProfileView: View {
         }
         .padding()
         .navigationTitle("Profile")
+        .fullScreenCover(isPresented: $isLoggedOut) {
+            LoginView()
+                .environmentObject(account)
+        }
     }
 }
