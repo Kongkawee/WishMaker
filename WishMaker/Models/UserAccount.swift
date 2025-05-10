@@ -7,6 +7,7 @@ class UserAccount: ObservableObject {
     @Published var balance: Double = 0.0
     @Published var wishes: [Wish] = []
     @Published var moneyHistory: [MoneyTransaction] = []
+    @Published var profileImageURL: String? = nil
 
     private var db = Firestore.firestore()
     
@@ -23,7 +24,6 @@ class UserAccount: ObservableObject {
         moneyHistory.append(MoneyTransaction(amount: amount, date: Date()))
         saveToFirestore()
     }
-
 
     func createWish(title: String, category: String, description: String, price: Double, finalDate: Date, imageURL: String) {
         let newWish = Wish(
@@ -46,7 +46,6 @@ class UserAccount: ObservableObject {
         wishes[index].savedAmount += amount
         balance -= amount
 
-        // ✅ Log a transaction
         let transaction = MoneyTransaction(amount: -amount, date: Date(), wishTitle: wish.title)
         moneyHistory.append(transaction)
 
@@ -59,7 +58,8 @@ class UserAccount: ObservableObject {
         let data: [String: Any] = [
             "balance": balance,
             "wishes": wishes.map { $0.toDict() },
-            "moneyHistory": moneyHistory.map { $0.toDict() }
+            "moneyHistory": moneyHistory.map { $0.toDict() },
+            "profileImageURL": profileImageURL ?? ""
         ]
 
         db.collection("users").document(userId).setData(data, merge: true)
@@ -71,6 +71,8 @@ class UserAccount: ObservableObject {
         db.collection("users").document(userId).getDocument { snapshot, error in
             if let data = snapshot?.data() {
                 self.balance = data["balance"] as? Double ?? 0.0
+                self.profileImageURL = data["profileImageURL"] as? String
+
                 if let wishesData = data["wishes"] as? [[String: Any]] {
                     self.wishes = wishesData.compactMap { Wish.fromDict($0) }
                     NotificationManager.scheduleMidnightMotivation(wishes: self.wishes)

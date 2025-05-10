@@ -10,11 +10,32 @@ struct ProfileView: View {
     var body: some View {
         VStack(spacing: 20) {
             if let user = Auth.auth().currentUser {
-                Image(systemName: "person.crop.circle.fill")
-                    .resizable()
-                    .frame(width: 100, height: 100)
-                    .foregroundColor(.blue)
-
+                if let urlString = account.profileImageURL,
+                   let url = URL(string: urlString) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .frame(width: 100, height: 100)
+                                .clipShape(Circle())
+                        case .failure:
+                            Image(systemName: "person.crop.circle.fill")
+                                .resizable()
+                                .frame(width: 100, height: 100)
+                                .foregroundColor(.blue)
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                } else {
+                    Image(systemName: "person.crop.circle.fill")
+                        .resizable()
+                        .frame(width: 100, height: 100)
+                        .foregroundColor(.blue)
+                }
                 Text(user.email ?? "No Email")
                     .font(.headline)
 
