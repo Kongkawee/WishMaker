@@ -6,6 +6,7 @@ struct WishListView: View {
     @State private var selectedWish: Wish? = nil
     @State private var showCompleted = false
     @State private var selectedCategory: String? = nil
+    @State private var wishToDelete: Wish? = nil
 
     var body: some View {
         NavigationView {
@@ -49,14 +50,11 @@ struct WishListView: View {
                                 let funding = min(account.balance, wish.price)
                                 let disabled = !canFund || wish.isExpired || wish.savedAmount >= wish.price
 
-                                wishRow(wish: wish, availableFunds: funding)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        if !disabled {
-                                            selectedWish = wish
-                                        }
+                                wishRow(wish: wish, availableFunds: funding) {
+                                    if !disabled {
+                                        selectedWish = wish
                                     }
-                                    .allowsHitTesting(!disabled)
+                                }
                             }
                         }
                     } else {
@@ -96,7 +94,9 @@ struct WishListView: View {
                     }
                 }
             }
-            .sheet(isPresented: $showAddWish) {
+            .sheet(isPresented: $showAddWish, onDismiss: {
+                account.loadFromFirestore()
+            }) {
                 CreateWishView(account: account)
                     .environmentObject(account)
             }
@@ -104,6 +104,19 @@ struct WishListView: View {
                 ConfirmFundSheet(wish: wish, account: account) {
                     selectedWish = nil
                 }
+            }
+            .alert(item: $wishToDelete) { wish in
+                Alert(
+                    title: Text("Delete Wish"),
+                    message: Text("Are you sure you want to delete \"\(wish.title)\"?"),
+                    primaryButton: .destructive(Text("Delete")) {
+                        if let index = account.wishes.firstIndex(where: { $0.id == wish.id }) {
+                            account.wishes.remove(at: index)
+                            account.saveToFirestore()
+                        }
+                    },
+                    secondaryButton: .cancel()
+                )
             }
         }
     }
@@ -118,58 +131,73 @@ struct WishListView: View {
     }
 
     @ViewBuilder
-    func wishRow(wish: Wish, availableFunds: Double) -> some View {
+    func wishRow(wish: Wish, availableFunds: Double, onTap: @escaping () -> Void = {}) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            AsyncImage(url: URL(string: wish.imageURL)) { phase in
-                switch phase {
-                case .empty:
-                    ProgressView()
-                        .frame(width: 60, height: 60)
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 60, height: 60)
-                        .clipped()
-                        .cornerRadius(8)
-                case .failure:
-                    Image(systemName: "photo")
-                        .resizable()
-                        .frame(width: 60, height: 60)
-                @unknown default:
-                    EmptyView()
+            HStack(spacing: 10) {
+                AsyncImage(url: URL(string: wish.imageURL)) { phase in
+                    switch phase {
+                    case .empty:
+                        ProgressView()
+                            .frame(width: 60, height: 60)
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 60, height: 60)
+                            .clipped()
+                            .cornerRadius(8)
+                    case .failure:
+                        Image(systemName: "photo")
+                            .resizable()
+                            .frame(width: 60, height: 60)
+                    @unknown default:
+                        EmptyView()
+                    }
                 }
-            }
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text(wish.title)
-                    .font(.headline)
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(wish.title)
+                        .font(.headline)
 
-                Text("Category: \(wish.category)")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
+                    Text("Category: \(wish.category)")
+                        .font(.subheadline)
+                        .foregroundColor(.gray)
 
-                Text(wish.description)
-                    .font(.subheadline)
+                    Text(wish.description)
+                        .font(.subheadline)
 
-                let shownAmount = min(availableFunds, wish.price)
-                Text("Fundable: $\(shownAmount, specifier: "%.2f") / $\(wish.price, specifier: "%.2f")")
-                    .font(.caption)
-
-                ProgressView(value: shownAmount, total: wish.price)
-                    .progressViewStyle(LinearProgressViewStyle(tint: shownAmount >= wish.price ? .green : .blue))
-
-                if wish.isExpired {
-                    Text("Expired")
+                    let shownAmount = min(availableFunds, wish.price)
+                    Text("Fundable: ฿\(shownAmount, specifier: "%.2f") / ฿\(wish.price, specifier: "%.2f")")
                         .font(.caption)
-                        .foregroundColor(.red)
-                        .bold()
-                } else {
-                    Text("Due: \(wish.finalDate.formatted(date: .abbreviated, time: .omitted))")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
+
+                    ProgressView(value: shownAmount, total: wish.price)
+                        .progressViewStyle(LinearProgressViewStyle(tint: shownAmount >= wish.price ? .green : .blue))
+
+                    if wish.isExpired {
+                        Text("Expired")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                            .bold()
+                    } else {
+                        Text("Due: \(wish.finalDate.formatted(date: .abbreviated, time: .omitted))")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
                 }
             }
+            .onTapGesture {
+                onTap()
+            }
+
+            Spacer()
+
+            Button {
+                wishToDelete = wish
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundColor(.red)
+            }
+            .padding(.top, 5)
         }
         .padding(.vertical, 5)
     }
@@ -184,12 +212,51 @@ struct ConfirmFundSheet: View {
         let amountToAdd = min(account.balance, wish.price - wish.savedAmount)
 
         VStack(spacing: 20) {
+            AsyncImage(url: URL(string: wish.imageURL)) { phase in
+                switch phase {
+                case .empty:
+                    ProgressView()
+                        .frame(width: 100, height: 100)
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 100, height: 100)
+                        .clipped()
+                        .cornerRadius(12)
+                case .failure:
+                    Image(systemName: "photo")
+                        .resizable()
+                        .frame(width: 100, height: 100)
+                @unknown default:
+                    EmptyView()
+                }
+            }
+
             Text("Fulfill \"\(wish.title)\"?")
                 .font(.headline)
                 .multilineTextAlignment(.center)
 
-            Text("This will deduct $\(amountToAdd, specifier: "%.2f") from your balance.")
-                .font(.subheadline)
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Category: \(wish.category)")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+
+                Text(wish.description)
+                    .font(.body)
+
+                Text("Due: \(wish.finalDate.formatted(date: .abbreviated, time: .omitted))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Text("Price: ฿\(wish.price, specifier: "%.2f")")
+                    .font(.caption)
+
+                Text("This will deduct ฿\(amountToAdd, specifier: "%.2f") from your balance.")
+                    .font(.subheadline)
+                    .bold()
+                    .padding(.top, 10)
+            }
 
             HStack(spacing: 20) {
                 Button("Cancel", role: .cancel) {
@@ -204,5 +271,7 @@ struct ConfirmFundSheet: View {
             }
         }
         .padding()
+        .frame(maxWidth: 400)
     }
 }
+

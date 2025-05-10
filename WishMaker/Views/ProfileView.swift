@@ -18,7 +18,7 @@ struct ProfileView: View {
                 Text(user.email ?? "No Email")
                     .font(.headline)
 
-                Text("Current Balance: $\(account.balance, specifier: "%.2f")")
+                Text("Current Balance: ฿\(account.balance, specifier: "%.2f")")
                     .font(.title3)
                     .padding()
 
@@ -46,7 +46,7 @@ struct ProfileView: View {
 
                 List(account.moneyHistory.sorted(by: { $0.date > $1.date })) { transaction in
                     VStack(alignment: .leading) {
-                        Text("\(transaction.amount >= 0 ? "+ $" : "- $")\(abs(transaction.amount), specifier: "%.2f")")
+                        Text("\(transaction.amount >= 0 ? "+ ฿" : "- ฿")\(abs(transaction.amount), specifier: "%.2f")")
                             .foregroundColor(transaction.amount >= 0 ? .green : .red)
                         Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
                             .font(.caption)

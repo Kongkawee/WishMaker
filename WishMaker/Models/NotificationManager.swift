@@ -12,7 +12,8 @@ struct NotificationManager {
 
         let content = UNMutableNotificationContent()
         content.title = "✨ Keep Going!"
-        content.body = "\"\(randomWish.title)\" is \(Int(progress))% there. You need $\(remaining, specifier: "%.2f") more. Don't give up!"
+        let remainingText = String(format: "%.2f", remaining)
+        content.body = "\"\(randomWish.title)\" is \(Int(progress))% there. You need ฿\(remainingText) more. Don't give up!"
         content.sound = .default
 
         var dateComponents = DateComponents()
