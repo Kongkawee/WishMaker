@@ -73,6 +73,10 @@ class UserAccount: ObservableObject {
                 self.balance = data["balance"] as? Double ?? 0.0
                 if let wishesData = data["wishes"] as? [[String: Any]] {
                     self.wishes = wishesData.compactMap { Wish.fromDict($0) }
+                    NotificationManager.scheduleMidnightMotivation(wishes: self.wishes)
+                    for wish in self.wishes {
+                        NotificationManager.scheduleDueDateReminder(for: wish)
+                    }
                 }
                 if let historyData = data["moneyHistory"] as? [[String: Any]] {
                     self.moneyHistory = historyData.compactMap { MoneyTransaction.fromDict($0) }
