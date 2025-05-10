@@ -7,11 +7,11 @@ struct WishListView: View {
     @State private var showCompleted = false
     @State private var selectedCategory: String? = nil
     @State private var wishToDelete: Wish? = nil
+    @State private var wishToEditDate: Wish? = nil
 
     var body: some View {
         NavigationView {
             VStack {
-                // Category filter bar
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
                         Button("All") {
@@ -41,14 +41,14 @@ struct WishListView: View {
 
                     let activeWishes = wishesByCategory.filter { !$0.isExpired && $0.savedAmount < $0.price }
                     let completedWishes = wishesByCategory.filter { $0.savedAmount >= $0.price }
-                    let expiredWishes = wishesByCategory.filter { $0.isExpired }
+                    let expiredWishes = wishesByCategory.filter { $0.isExpired && $0.savedAmount < $0.price }
 
                     if !showCompleted {
                         Section(header: Text("Available Wishes")) {
                             ForEach(activeWishes) { wish in
                                 let canFund = account.balance >= wish.price
                                 let funding = min(account.balance, wish.price)
-                                let disabled = !canFund || wish.isExpired || wish.savedAmount >= wish.price
+                                let disabled = !canFund || wish.savedAmount >= wish.price
 
                                 wishRow(wish: wish, availableFunds: funding) {
                                     if !disabled {
@@ -70,7 +70,6 @@ struct WishListView: View {
                             Section(header: Text("Expired Wishes")) {
                                 ForEach(expiredWishes) { wish in
                                     wishRow(wish: wish, availableFunds: 0)
-                                        .allowsHitTesting(false)
                                 }
                             }
                         }
@@ -117,6 +116,11 @@ struct WishListView: View {
                     },
                     secondaryButton: .cancel()
                 )
+            }
+            .sheet(item: $wishToEditDate) { wish in
+                EditDateSheet(wish: wish, account: account) {
+                    wishToEditDate = nil
+                }
             }
         }
     }
@@ -191,15 +195,68 @@ struct WishListView: View {
 
             Spacer()
 
-            Button {
-                wishToDelete = wish
-            } label: {
-                Image(systemName: "trash")
-                    .foregroundColor(.red)
+            VStack(spacing: 5) {
+                if wish.savedAmount < wish.price {
+                    Button {
+                        wishToEditDate = wish
+                    } label: {
+                        Image(systemName: "calendar.badge.clock")
+                            .foregroundColor(.blue)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Button {
+                    wishToDelete = wish
+                } label: {
+                    Image(systemName: "trash")
+                        .foregroundColor(.red)
+                }
+                .buttonStyle(.plain)
             }
-            .padding(.top, 5)
         }
         .padding(.vertical, 5)
+    }
+}
+
+struct EditDateSheet: View {
+    var wish: Wish
+    @ObservedObject var account: UserAccount
+    @State private var newDate: Date
+    var dismiss: () -> Void
+
+    init(wish: Wish, account: UserAccount, dismiss: @escaping () -> Void) {
+        self.wish = wish
+        self._newDate = State(initialValue: wish.finalDate)
+        self.account = account
+        self.dismiss = dismiss
+    }
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Edit Due Date")
+                .font(.headline)
+
+            DatePicker("New Final Date", selection: $newDate, displayedComponents: .date)
+
+            HStack {
+                Button("Cancel", role: .cancel) {
+                    dismiss()
+                }
+                Spacer()
+                Button("Save") {
+                    if let index = account.wishes.firstIndex(where: { $0.id == wish.id }) {
+                        account.wishes[index].finalDate = newDate
+                        account.saveToFirestore()
+                        account.loadFromFirestore()
+                    }
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .frame(maxWidth: 400)
     }
 }
 
@@ -249,7 +306,7 @@ struct ConfirmFundSheet: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
 
-                Text("Price: ฿\(wish.price, specifier: "%.2f")")
+                Text("Price: ฿\(wish.savedAmount, specifier: "%.2f") / ฿\(wish.price, specifier: "%.2f")")
                     .font(.caption)
 
                 Text("This will deduct ฿\(amountToAdd, specifier: "%.2f") from your balance.")

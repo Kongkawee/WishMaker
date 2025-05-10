@@ -79,6 +79,13 @@ struct CreateWishView: View {
                 }
             }
             .navigationTitle("Create Wish")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
+            }
             .task(id: selectedPhoto) {
                 do {
                     if let data = try await selectedPhoto?.loadTransferable(type: Data.self) {
