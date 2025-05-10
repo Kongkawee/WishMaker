@@ -7,7 +7,6 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Wish List", systemImage: "list.bullet")
                 }
-
             ProfileView()
                 .tabItem {
                     Label("Profile", systemImage: "person.circle")

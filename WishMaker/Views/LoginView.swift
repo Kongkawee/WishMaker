@@ -10,39 +10,87 @@ struct LoginView: View {
     @State private var showRegister = false
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Wish Maker")
-                .font(.largeTitle)
-                .bold()
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [.pink, .orange]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
 
-            TextField("Email", text: $email)
-                .keyboardType(.emailAddress)
-                .autocapitalization(.none)
-                .textFieldStyle(.roundedBorder)
+            VStack {
+                Spacer()
 
-            SecureField("Password", text: $password)
-                .textFieldStyle(.roundedBorder)
+                Text("WishMaker")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(.white)
+                    .padding(.bottom, 20)
 
-            Button("Log In") {
-                loginUser()
-            }
+                VStack(spacing: 16) {
+                    HStack {
+                        Image(systemName: "envelope")
+                            .foregroundColor(.gray)
+                        TextField("Email", text: $email)
+                            .keyboardType(.emailAddress)
+                            .autocapitalization(.none)
+                            .textFieldStyle(PlainTextFieldStyle())
+                    }
+                    .padding()
+                    .background(Color.white.opacity(0.9))
+                    .cornerRadius(12)
 
-            Button("Register") {
-                showRegister = true
-            }
-            .sheet(isPresented: $showRegister) {
-                RegisterView()
-            }
+                    HStack {
+                        Image(systemName: "lock")
+                            .foregroundColor(.gray)
+                        SecureField("Password", text: $password)
+                            .textFieldStyle(PlainTextFieldStyle())
+                    }
+                    .padding()
+                    .background(Color.white.opacity(0.9))
+                    .cornerRadius(12)
 
-            if !errorMessage.isEmpty {
-                Text(errorMessage)
-                    .foregroundColor(.red)
+                    if !errorMessage.isEmpty {
+                        Text(errorMessage)
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    }
+
+                    Button(action: loginUser) {
+                        Text("Log In")
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .cornerRadius(12)
+                    }
+
+                    Button("Register") {
+                        showRegister = true
+                    }
+                    .foregroundColor(.white.opacity(0.9))
+                }
+                .padding()
+                .background(Color.white.opacity(0.2))
+                .cornerRadius(20)
+                .padding(.horizontal, 30)
+
+                Spacer()
             }
         }
-        .padding()
         .fullScreenCover(isPresented: $isLoggedIn) {
             MainTabView()
         }
+        .overlay(
+            Group {
+                if showRegister {
+                    RegisterView(dismiss: { showRegister = false })
+                        .transition(.move(edge: .trailing))
+                        .zIndex(1)
+                }
+            }
+        )
+        .animation(.easeInOut, value: showRegister)
     }
 
     func loginUser() {
@@ -54,5 +102,12 @@ struct LoginView: View {
                 isLoggedIn = true
             }
         }
+    }
+}
+
+struct LoginView_Previews: PreviewProvider {
+    static var previews: some View {
+        LoginView()
+            .environmentObject(UserAccount()) // Inject a dummy environment object
     }
 }

@@ -8,95 +8,148 @@ struct WishListView: View {
     @State private var selectedCategory: String? = nil
     @State private var wishToDelete: Wish? = nil
     @State private var wishToEditDate: Wish? = nil
-
+    
     var body: some View {
         NavigationView {
-            VStack {
-                ScrollView(.horizontal, showsIndicators: false) {
+            ZStack {
+                LinearGradient(
+                    gradient: Gradient(colors: [.pink, .orange]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                VStack(spacing: 10) {
                     HStack {
-                        Button("All") {
-                            selectedCategory = nil
+                            Text("Wish Lists")
+                                .font(.largeTitle)
+                                .bold()
+                                .foregroundColor(.white)
+
+                            Spacer()
+
+                            Button(showCompleted ? "Show Active" : "Show Completed") {
+                                showCompleted.toggle()
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal)
+                            .padding(.vertical, 6)
+                            .background(Color.white.opacity(0.2))
+                            .cornerRadius(12)
                         }
                         .padding(.horizontal)
-                        .background(selectedCategory == nil ? Color.blue.opacity(0.2) : Color.clear)
-                        .cornerRadius(8)
-
-                        ForEach(uniqueCategories(), id: \.self) { category in
-                            Button(category) {
-                                selectedCategory = category
+                        .padding(.top, 20)
+                    // Category Filter Bar
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            Button("All") {
+                                selectedCategory = nil
                             }
                             .padding(.horizontal)
-                            .background(selectedCategory == category ? Color.blue.opacity(0.2) : Color.clear)
-                            .cornerRadius(8)
+                            .padding(.vertical, 6)
+                            .background(selectedCategory == nil ? Color.white.opacity(0.9) : Color.white.opacity(0.3))
+                            .cornerRadius(20)
+                            .foregroundColor(.pink)
+                            
+                            ForEach(uniqueCategories(), id: \.self) { category in
+                                Button(category) {
+                                    selectedCategory = category
+                                }
+                                .padding(.horizontal)
+                                .padding(.vertical, 6)
+                                .background(selectedCategory == category ? Color.white.opacity(0.9) : Color.white.opacity(0.3))
+                                .cornerRadius(20)
+                                .foregroundColor(.pink)
+                            }
                         }
+                        .padding(.horizontal)
+                        .padding(.top)
                     }
-                    .padding(.horizontal)
-                    .padding(.top)
-                }
+                    
+                    // Wish List Section
+                    ScrollView {
+                        VStack(spacing: 12) {
+                            let wishesByCategory = account.wishes.filter { selectedCategory == nil || $0.category == selectedCategory }
+                            let active = wishesByCategory.filter { !$0.isExpired && $0.savedAmount < $0.price }
+                            let completed = wishesByCategory.filter { $0.savedAmount >= $0.price }
+                            let expired = wishesByCategory.filter { $0.isExpired && $0.savedAmount < $0.price }
+                            
+                            if !showCompleted {
+                                if active.isEmpty {
+                                    Text("No active wishes 🎯")
+                                        .foregroundColor(.white)
+                                }
+                                ForEach(active) { wish in
+                                    wishCard(wish: wish)
+                                }
+                            } else {
+                                if completed.isEmpty && expired.isEmpty {
+                                    Text("No completed or expired wishes 😅")
+                                        .foregroundColor(.white)
+                                }
+                                if !completed.isEmpty {
+                                    Text("✅ Completed Wishes")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.top, 10)
+                                        .padding(.horizontal)
 
-                List {
-                    let wishesByCategory = account.wishes.filter { wish in
-                        selectedCategory == nil || wish.category == selectedCategory
-                    }
+                                    ForEach(completed) { wish in
+                                        wishCard(wish: wish)
+                                    }
+                                }
 
-                    let activeWishes = wishesByCategory.filter { !$0.isExpired && $0.savedAmount < $0.price }
-                    let completedWishes = wishesByCategory.filter { $0.savedAmount >= $0.price }
-                    let expiredWishes = wishesByCategory.filter { $0.isExpired && $0.savedAmount < $0.price }
+                                if !expired.isEmpty {
+                                    Text("❌ Expired Wishes")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.top, 10)
+                                        .padding(.horizontal)
 
-                    if !showCompleted {
-                        Section(header: Text("Available Wishes")) {
-                            ForEach(activeWishes) { wish in
-                                let canFund = account.balance >= wish.price
-                                let funding = min(account.balance, wish.price)
-                                let disabled = !canFund || wish.savedAmount >= wish.price
-
-                                wishRow(wish: wish, availableFunds: funding) {
-                                    if !disabled {
-                                        selectedWish = wish
+                                    ForEach(expired) { wish in
+                                        wishCard(wish: wish)
                                     }
                                 }
                             }
                         }
-                    } else {
-                        if !completedWishes.isEmpty {
-                            Section(header: Text("Completed Wishes")) {
-                                ForEach(completedWishes) { wish in
-                                    wishRow(wish: wish, availableFunds: wish.price)
-                                }
-                            }
+                        .padding(.horizontal)
+                        .padding(.bottom, 80) // For floating button spacing
+                    }
+                }
+                
+                // Floating "+" button
+                VStack {
+                    Spacer()
+                    HStack {
+                        Spacer()
+                        Button {
+                            showAddWish = true
+                        } label: {
+                            Image(systemName: "plus")
+                                .foregroundColor(.white)
+                                .padding()
+                                .background(Color.blue)
+                                .clipShape(Circle())
+                                .shadow(radius: 4)
                         }
-
-                        if !expiredWishes.isEmpty {
-                            Section(header: Text("Expired Wishes")) {
-                                ForEach(expiredWishes) { wish in
-                                    wishRow(wish: wish, availableFunds: 0)
-                                }
-                            }
-                        }
+                        .padding()
                     }
                 }
-                .listStyle(.plain)
+                Divider()
+                    .background(Color.gray.opacity(0.3))
             }
-            .navigationTitle("Wish List")
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(showCompleted ? "Show Active" : "Show Completed") {
-                        showCompleted.toggle()
-                    }
-                }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showAddWish = true
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showAddWish, onDismiss: {
-                account.loadFromFirestore()
-            }) {
-                CreateWishView(account: account)
+//            .navigationTitle("Wish Lists")
+//            .toolbar {
+//                ToolbarItem(placement: .navigationBarLeading) {
+//                    Button(showCompleted ? "Show Active" : "Show Completed") {
+//                        showCompleted.toggle()
+//                    }
+//                    .foregroundColor(.white)
+//                }
+//            }
+            .fullScreenCover(isPresented: $showAddWish) {
+                CreateWishView(account: account, dismiss: { showAddWish = false })
                     .environmentObject(account)
             }
             .sheet(item: $selectedWish) { wish in
@@ -124,211 +177,241 @@ struct WishListView: View {
             }
         }
     }
-
+    
     func uniqueCategories() -> [String] {
         let relevantWishes = showCompleted
-            ? account.wishes.filter { $0.savedAmount >= $0.price || $0.isExpired }
-            : account.wishes.filter { !$0.isExpired && $0.savedAmount < $0.price }
-
+        ? account.wishes.filter { $0.savedAmount >= $0.price || $0.isExpired }
+        : account.wishes.filter { !$0.isExpired && $0.savedAmount < $0.price }
+        
         let categories = relevantWishes.map { $0.category }
         return Array(Set(categories)).sorted()
     }
-
+    
     @ViewBuilder
-    func wishRow(wish: Wish, availableFunds: Double, onTap: @escaping () -> Void = {}) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            HStack(spacing: 10) {
+    func wishCard(wish: Wish) -> some View {
+        let fundable = min(account.balance, wish.price)
+        
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
                 AsyncImage(url: URL(string: wish.imageURL)) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .frame(width: 60, height: 60)
-                    case .success(let image):
+                    if let image = try? phase.image {
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 60, height: 60)
+                            .scaledToFill()
+                            .frame(width: 80, height: 80)
                             .clipped()
-                            .cornerRadius(8)
-                    case .failure:
+                            .cornerRadius(10)
+                    } else {
                         Image(systemName: "photo")
                             .resizable()
-                            .frame(width: 60, height: 60)
-                    @unknown default:
-                        EmptyView()
+                            .frame(width: 80, height: 80)
+                            .cornerRadius(10)
                     }
                 }
-
-                VStack(alignment: .leading, spacing: 5) {
+                
+                VStack(alignment: .leading, spacing: 4) {
                     Text(wish.title)
                         .font(.headline)
-
+                        .foregroundColor(.black)
+                    
                     Text("Category: \(wish.category)")
                         .font(.subheadline)
                         .foregroundColor(.gray)
-
+                    
                     Text(wish.description)
-                        .font(.subheadline)
-
-                    let shownAmount = min(availableFunds, wish.price)
-                    Text("Fundable: ฿\(shownAmount, specifier: "%.2f") / ฿\(wish.price, specifier: "%.2f")")
+                        .font(.footnote)
+                        .foregroundColor(.black)
+                    
+                    // Fundable bar
+                    ProgressView(value: fundable, total: wish.price)
+                        .accentColor(fundable >= wish.price ? .pink : .blue)
+                    
+                    Text("Fundable: ฿\(fundable, specifier: "%.2f") / ฿\(wish.price, specifier: "%.2f")")
                         .font(.caption)
-
-                    ProgressView(value: shownAmount, total: wish.price)
-                        .progressViewStyle(LinearProgressViewStyle(tint: shownAmount >= wish.price ? .green : .blue))
-
-                    if wish.isExpired {
-                        Text("Expired")
-                            .font(.caption)
-                            .foregroundColor(.red)
-                            .bold()
-                    } else {
-                        Text("Due: \(wish.finalDate.formatted(date: .abbreviated, time: .omitted))")
-                            .font(.caption2)
-                            .foregroundColor(.secondary)
-                    }
+                        .foregroundColor(.secondary)
                 }
-            }
-            .onTapGesture {
-                onTap()
-            }
-
-            Spacer()
-
-            VStack(spacing: 5) {
-                if wish.savedAmount < wish.price {
+                
+                Spacer()
+                
+                VStack(spacing: 5) {
+                    if wish.savedAmount < wish.price {
+                        Button {
+                            wishToEditDate = wish
+                        } label: {
+                            Image(systemName: "calendar.badge.clock")
+                                .foregroundColor(.blue)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
                     Button {
-                        wishToEditDate = wish
+                        wishToDelete = wish
                     } label: {
-                        Image(systemName: "calendar.badge.clock")
-                            .foregroundColor(.blue)
+                        Image(systemName: "trash")
+                            .foregroundColor(.red)
                     }
                     .buttonStyle(.plain)
                 }
-
-                Button {
-                    wishToDelete = wish
-                } label: {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.plain)
             }
-        }
-        .padding(.vertical, 5)
-    }
-}
-
-struct EditDateSheet: View {
-    var wish: Wish
-    @ObservedObject var account: UserAccount
-    @State private var newDate: Date
-    var dismiss: () -> Void
-
-    init(wish: Wish, account: UserAccount, dismiss: @escaping () -> Void) {
-        self.wish = wish
-        self._newDate = State(initialValue: wish.finalDate)
-        self.account = account
-        self.dismiss = dismiss
-    }
-
-    var body: some View {
-        VStack(spacing: 20) {
-            Text("Edit Due Date")
-                .font(.headline)
-
-            DatePicker("New Final Date", selection: $newDate, displayedComponents: .date)
-
-            HStack {
-                Button("Cancel", role: .cancel) {
-                    dismiss()
-                }
-                Spacer()
-                Button("Save") {
-                    if let index = account.wishes.firstIndex(where: { $0.id == wish.id }) {
-                        account.wishes[index].finalDate = newDate
-                        account.saveToFirestore()
-                        account.loadFromFirestore()
-                    }
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding()
-        .frame(maxWidth: 400)
-    }
-}
-
-struct ConfirmFundSheet: View {
-    var wish: Wish
-    @ObservedObject var account: UserAccount
-    var dismiss: () -> Void
-
-    var body: some View {
-        let amountToAdd = min(account.balance, wish.price - wish.savedAmount)
-
-        VStack(spacing: 20) {
-            AsyncImage(url: URL(string: wish.imageURL)) { phase in
-                switch phase {
-                case .empty:
-                    ProgressView()
-                        .frame(width: 100, height: 100)
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                        .frame(width: 100, height: 100)
-                        .clipped()
-                        .cornerRadius(12)
-                case .failure:
-                    Image(systemName: "photo")
-                        .resizable()
-                        .frame(width: 100, height: 100)
-                @unknown default:
-                    EmptyView()
-                }
-            }
-
-            Text("Fulfill \"\(wish.title)\"?")
-                .font(.headline)
-                .multilineTextAlignment(.center)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Category: \(wish.category)")
-                    .font(.subheadline)
-                    .foregroundColor(.gray)
-
-                Text(wish.description)
-                    .font(.body)
-
+            
+            if wish.isExpired {
+                Text("Expired")
+                    .font(.caption)
+                    .foregroundColor(.red)
+            } else {
                 Text("Due: \(wish.finalDate.formatted(date: .abbreviated, time: .omitted))")
                     .font(.caption)
                     .foregroundColor(.secondary)
-
-                Text("Price: ฿\(wish.savedAmount, specifier: "%.2f") / ฿\(wish.price, specifier: "%.2f")")
-                    .font(.caption)
-
-                Text("This will deduct ฿\(amountToAdd, specifier: "%.2f") from your balance.")
-                    .font(.subheadline)
-                    .bold()
-                    .padding(.top, 10)
-            }
-
-            HStack(spacing: 20) {
-                Button("Cancel", role: .cancel) {
-                    dismiss()
-                }
-
-                Button("Confirm") {
-                    account.addMoneyToWish(wish, amount: amountToAdd)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
             }
         }
         .padding()
-        .frame(maxWidth: 400)
+        .background(Color.white.opacity(0.9))
+        .cornerRadius(15)
+        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+        .onTapGesture {
+            if wish.savedAmount < wish.price && !wish.isExpired {
+                selectedWish = wish
+            }
+        }
+    }
+    
+    struct EditDateSheet: View {
+        var wish: Wish
+        @ObservedObject var account: UserAccount
+        @State private var newDate: Date
+        var dismiss: () -> Void
+        
+        init(wish: Wish, account: UserAccount, dismiss: @escaping () -> Void) {
+            self.wish = wish
+            self._newDate = State(initialValue: wish.finalDate)
+            self.account = account
+            self.dismiss = dismiss
+        }
+        
+        var body: some View {
+            ZStack {
+                LinearGradient(
+                    gradient: Gradient(colors: [.pink, .orange]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    Text("Edit Due Date")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                    
+                    DatePicker("New Final Date", selection: $newDate, displayedComponents: .date)
+                        .datePickerStyle(.graphical)
+                    
+                    HStack {
+                        Button("Cancel", role: .cancel) {
+                            dismiss()
+                        }
+                        Spacer()
+                        Button("Save") {
+                            if let index = account.wishes.firstIndex(where: { $0.id == wish.id }) {
+                                account.wishes[index].finalDate = newDate
+                                account.saveToFirestore()
+                                account.loadFromFirestore()
+                            }
+                            dismiss()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding()
+                .background(Color.white.opacity(0.95))
+                .cornerRadius(16)
+                .shadow(radius: 10)
+                .padding()
+            }
+        }
+    }
+    
+    struct ConfirmFundSheet: View {
+        var wish: Wish
+        @ObservedObject var account: UserAccount
+        var dismiss: () -> Void
+        
+        var body: some View {
+            let amountToAdd = min(account.balance, wish.price - wish.savedAmount)
+            
+            ZStack {
+                LinearGradient(
+                    gradient: Gradient(colors: [.pink, .orange]),
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                VStack(spacing: 20) {
+                    AsyncImage(url: URL(string: wish.imageURL)) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .frame(width: 100, height: 100)
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 100, height: 100)
+                                .clipped()
+                                .cornerRadius(12)
+                        case .failure:
+                            Image(systemName: "photo")
+                                .resizable()
+                                .frame(width: 100, height: 100)
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                    
+                    Text("Fulfill \"\(wish.title)\"?")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .multilineTextAlignment(.center)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Category: \(wish.category)")
+                            .font(.subheadline)
+                            .foregroundColor(.gray)
+                        
+                        Text(wish.description)
+                            .font(.body)
+                        
+                        Text("Due: \(wish.finalDate.formatted(date: .abbreviated, time: .omitted))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Text("Cost: ฿\(wish.price, specifier: "%.2f")")
+                            .font(.caption)
+                        
+                        Text("This will deduct ฿\(amountToAdd, specifier: "%.2f") from your balance.")
+                            .font(.subheadline)
+                            .bold()
+                            .padding(.top, 10)
+                    }
+                    
+                    HStack(spacing: 20) {
+                        Button("Cancel", role: .cancel) {
+                            dismiss()
+                        }
+                        
+                        Button("Confirm") {
+                            account.addMoneyToWish(wish, amount: amountToAdd)
+                            dismiss()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+                .padding()
+                .background(Color.white.opacity(0.95))
+                .cornerRadius(16)
+                .shadow(radius: 10)
+                .padding()
+            }
+        }
     }
 }
-
