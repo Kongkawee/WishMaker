@@ -40,7 +40,20 @@ struct ProfileView: View {
                 }, message: {
                     Text("Enter the amount to add to your balance.")
                 })
+                Text("Transaction History")
+                    .font(.headline)
+                    .padding(.top)
 
+                List(account.moneyHistory.sorted(by: { $0.date > $1.date })) { transaction in
+                    VStack(alignment: .leading) {
+                        Text("\(transaction.amount >= 0 ? "+ $" : "- $")\(abs(transaction.amount), specifier: "%.2f")")
+                            .foregroundColor(transaction.amount >= 0 ? .green : .red)
+                        Text(transaction.date.formatted(date: .abbreviated, time: .shortened))
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                    }
+                }
+                .frame(height: 200) // Or scrollable height as needed
                 Button("Sign Out") {
                     do {
                         try Auth.auth().signOut()
