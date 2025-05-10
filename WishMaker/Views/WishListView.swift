@@ -43,31 +43,27 @@ struct WishListView: View {
                     let expiredWishes = wishesByCategory.filter { $0.isExpired }
 
                     if !showCompleted {
-                        Section(header: Text("Active Wishes")) {
+                        Section(header: Text("Available Wishes")) {
                             ForEach(activeWishes) { wish in
-                                Button {
-                                    selectedWish = wish
-                                } label: {
-                                    wishRow(wish)
-                                }
-                                .buttonStyle(PlainButtonStyle())
-                                .disabled(wish.isExpired || wish.savedAmount >= wish.price)
-                            }
-                            .onDelete { indexSet in
-                                let wishesToDelete = indexSet.map { activeWishes[$0] }
-                                for wish in wishesToDelete {
-                                    if let index = account.wishes.firstIndex(where: { $0.id == wish.id }) {
-                                        account.wishes.remove(at: index)
+                                let canFund = account.balance >= wish.price
+                                let funding = min(account.balance, wish.price)
+                                let disabled = !canFund || wish.isExpired || wish.savedAmount >= wish.price
+
+                                wishRow(wish: wish, availableFunds: funding)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        if !disabled {
+                                            selectedWish = wish
+                                        }
                                     }
-                                }
-                                account.saveToFirestore()
+                                    .allowsHitTesting(!disabled)
                             }
                         }
                     } else {
                         if !completedWishes.isEmpty {
                             Section(header: Text("Completed Wishes")) {
                                 ForEach(completedWishes) { wish in
-                                    wishRow(wish)
+                                    wishRow(wish: wish, availableFunds: wish.price)
                                 }
                             }
                         }
@@ -75,8 +71,8 @@ struct WishListView: View {
                         if !expiredWishes.isEmpty {
                             Section(header: Text("Expired Wishes")) {
                                 ForEach(expiredWishes) { wish in
-                                    wishRow(wish)
-                                        .opacity(0.5)
+                                    wishRow(wish: wish, availableFunds: 0)
+                                        .allowsHitTesting(false)
                                 }
                             }
                         }
@@ -105,7 +101,7 @@ struct WishListView: View {
                     .environmentObject(account)
             }
             .sheet(item: $selectedWish) { wish in
-                AddMoneySheet(wish: wish, account: account) {
+                ConfirmFundSheet(wish: wish, account: account) {
                     selectedWish = nil
                 }
             }
@@ -122,7 +118,7 @@ struct WishListView: View {
     }
 
     @ViewBuilder
-    func wishRow(_ wish: Wish) -> some View {
+    func wishRow(wish: Wish, availableFunds: Double) -> some View {
         HStack(alignment: .top, spacing: 10) {
             AsyncImage(url: URL(string: wish.imageURL)) { phase in
                 switch phase {
@@ -156,8 +152,12 @@ struct WishListView: View {
                 Text(wish.description)
                     .font(.subheadline)
 
-                Text("Saved: $\(wish.savedAmount, specifier: "%.2f") / $\(wish.price, specifier: "%.2f")")
+                let shownAmount = min(availableFunds, wish.price)
+                Text("Fundable: $\(shownAmount, specifier: "%.2f") / $\(wish.price, specifier: "%.2f")")
                     .font(.caption)
+
+                ProgressView(value: shownAmount, total: wish.price)
+                    .progressViewStyle(LinearProgressViewStyle(tint: shownAmount >= wish.price ? .green : .blue))
 
                 if wish.isExpired {
                     Text("Expired")
@@ -175,50 +175,34 @@ struct WishListView: View {
     }
 }
 
-struct AddMoneySheet: View {
+struct ConfirmFundSheet: View {
     var wish: Wish
     @ObservedObject var account: UserAccount
     var dismiss: () -> Void
 
-    @State private var amountToAdd = ""
-
     var body: some View {
-        let maxAddable = min(account.balance, wish.price - wish.savedAmount)
+        let amountToAdd = min(account.balance, wish.price - wish.savedAmount)
 
         VStack(spacing: 20) {
-            Text("Add Money to \"\(wish.title)\"")
+            Text("Fulfill \"\(wish.title)\"?")
                 .font(.headline)
+                .multilineTextAlignment(.center)
 
-            Text("Current Balance: $\(account.balance, specifier: "%.2f")")
+            Text("This will deduct $\(amountToAdd, specifier: "%.2f") from your balance.")
                 .font(.subheadline)
 
-            Text("Remaining for this wish: $\(wish.price - wish.savedAmount, specifier: "%.2f")")
-                .font(.subheadline)
-                .foregroundColor(.gray)
-
-            TextField("Enter amount", text: $amountToAdd)
-                .keyboardType(.decimalPad)
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-
-            Button("Add Money") {
-                if let amount = Double(amountToAdd), amount > 0 {
-                    let actualAmount = min(amount, maxAddable)
-                    account.addMoneyToWish(wish, amount: actualAmount)
+            HStack(spacing: 20) {
+                Button("Cancel", role: .cancel) {
                     dismiss()
                 }
-            }
 
-            Button("Cancel", role: .cancel) {
-                dismiss()
+                Button("Confirm") {
+                    account.addMoneyToWish(wish, amount: amountToAdd)
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
             }
         }
         .padding()
-        .onChange(of: amountToAdd) { newValue in
-            if let value = Double(newValue), value > maxAddable {
-                amountToAdd = String(format: "%.2f", maxAddable)
-            }
-        }
     }
 }
