@@ -136,18 +136,8 @@ struct WishListView: View {
                         .padding()
                     }
                 }
-                Divider()
                     .background(Color.gray.opacity(0.3))
             }
-//            .navigationTitle("Wish Lists")
-//            .toolbar {
-//                ToolbarItem(placement: .navigationBarLeading) {
-//                    Button(showCompleted ? "Show Active" : "Show Completed") {
-//                        showCompleted.toggle()
-//                    }
-//                    .foregroundColor(.white)
-//                }
-//            }
             .fullScreenCover(isPresented: $showAddWish) {
                 CreateWishView(account: account, dismiss: { showAddWish = false })
                     .environmentObject(account)
@@ -189,7 +179,7 @@ struct WishListView: View {
     
     @ViewBuilder
     func wishCard(wish: Wish) -> some View {
-        let fundable = min(account.balance, wish.price)
+        let fundable = showCompleted ? wish.savedAmount : min(account.balance, wish.price)
         
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -224,7 +214,7 @@ struct WishListView: View {
                     
                     // Fundable bar
                     ProgressView(value: fundable, total: wish.price)
-                        .accentColor(fundable >= wish.price ? .pink : .blue)
+                        .accentColor(fundable >= wish.price ? .pink : .pink)
                     
                     Text("Fundable: ฿\(fundable, specifier: "%.2f") / ฿\(wish.price, specifier: "%.2f")")
                         .font(.caption)
@@ -269,7 +259,8 @@ struct WishListView: View {
         .cornerRadius(15)
         .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
         .onTapGesture {
-            if wish.savedAmount < wish.price && !wish.isExpired {
+            let remaining = wish.price - wish.savedAmount
+            if !showCompleted && account.balance >= remaining && !wish.isExpired {
                 selectedWish = wish
             }
         }

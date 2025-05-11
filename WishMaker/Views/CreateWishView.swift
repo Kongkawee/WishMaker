@@ -153,6 +153,7 @@ struct CreateWishView: View {
                     finalDate: finalDate,
                     imageURL: imageURL
                 )
+                account.loadFromFirestore()
                 dismiss()
             } else {
                 errorMessage = "Image upload failed. Please try again."
