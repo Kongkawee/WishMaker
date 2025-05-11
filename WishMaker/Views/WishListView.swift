@@ -251,6 +251,14 @@ struct WishListView: View {
                 Text("Due: \(wish.finalDate.formatted(date: .abbreviated, time: .omitted))")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                let remainingAmount = max(wish.price - wish.savedAmount, 0)
+                let walletOffset = account.balance
+                let daysLeft = max(Calendar.current.dateComponents([.day], from: Date(), to: wish.finalDate).day ?? 0, 1)
+                let dailySaving = max((remainingAmount - walletOffset), 0) / Double(daysLeft)
+
+                Text("Need to Save ฿\(dailySaving, specifier: "%.2f") per day")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .padding()
