@@ -136,7 +136,6 @@ struct WishListView: View {
                         .padding()
                     }
                 }
-                    .background(Color.gray.opacity(0.3))
             }
             .fullScreenCover(isPresented: $showAddWish) {
                 CreateWishView(account: account, dismiss: { showAddWish = false })
