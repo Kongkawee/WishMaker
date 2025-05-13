@@ -1,45 +1,56 @@
 import SwiftUI
+import FirebaseAuth
 
 struct SplashView: View {
     @State private var isActive = false
-    @Namespace private var animation
+    @EnvironmentObject var account: UserAccount
 
     var body: some View {
         ZStack {
             if isActive {
-                LoginView()
-                    .transition(.move(edge: .trailing).combined(with: .opacity))
-            } else {
-                ZStack {
-                    LinearGradient(
-                        gradient: Gradient(colors: [.pink, .orange]),
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .ignoresSafeArea()
-
-                    VStack {
-                        Spacer()
-                        Image(systemName: "star.fill")
-                            .resizable()
-                            .frame(width: 100, height: 100)
-                            .foregroundColor(.white)
-                            .padding()
-
-                        Text("WISH MAKER")
-                            .font(.title)
-                            .foregroundColor(.white)
-                            .bold()
-                        Spacer()
-                    }
+                if Auth.auth().currentUser != nil {
+                    MainTabView() // Already logged in
+                        .environmentObject(account)
+                        .onAppear {
+                            account.loadFromFirestore()
+                        }
+                } else {
+                    LoginView()
+                        .environmentObject(account)
                 }
-                .transition(.move(edge: .leading).combined(with: .opacity))
+            } else {
+                splashScreen
             }
         }
-        .animation(.easeInOut(duration: 0.6), value: isActive)
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                 isActive = true
+            }
+        }
+    }
+
+    var splashScreen: some View {
+        ZStack {
+            LinearGradient(
+                gradient: Gradient(colors: [.pink, .orange]),
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            .ignoresSafeArea()
+
+            VStack {
+                Spacer()
+                Image(systemName: "star.fill")
+                    .resizable()
+                    .frame(width: 100, height: 100)
+                    .foregroundColor(.white)
+                    .padding()
+
+                Text("WISH MAKER")
+                    .font(.title)
+                    .foregroundColor(.white)
+                    .bold()
+                Spacer()
             }
         }
     }
