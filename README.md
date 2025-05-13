@@ -24,10 +24,6 @@ WishMaker is an iOS application developed with SwiftUI that empowers users to se
 - **Cloudinary**: Handle image uploads for user profiles and wishes.
 - **UserNotifications**: Schedule and manage local notifications for user engagement.
 
-## 📱 Screenshots
-
-*Include relevant screenshots of the application here to showcase the UI and features.*
-
 ## 🧑‍💻 Getting Started
 
 ### Prerequisites
